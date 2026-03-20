@@ -47,10 +47,4 @@
 
 MIT License（见 `LICENSE` 文件）
 
-## 仓库地址
 
-<https://github.com/A-night-owl-Rabbit/my-neuro-plugin-thinking-bubble>
-
-## 致谢
-
-适用于 my-neuro 系 Live2D 语音桌宠项目；发布形态参考社区插件（如 [my-neuro-plugin-astrbook](https://github.com/A-night-owl-Rabbit/my-neuro-plugin-astrbook)）的组织方式。
