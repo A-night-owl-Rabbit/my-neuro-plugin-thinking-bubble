@@ -1,0 +1,16 @@
+# 本地/环境
+.env
+.env.*
+*.local
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 勿提交的私密配置副本
+plugin_config.local.json

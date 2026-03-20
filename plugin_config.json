@@ -1,0 +1,32 @@
+{
+  "offset_x": {
+    "title": "水平偏移",
+    "description": "气泡相对模型中心的水平偏移(px)，负值偏左，正值偏右",
+    "type": "number",
+    "default": -160
+  },
+  "offset_y": {
+    "title": "垂直偏移",
+    "description": "气泡相对模型中心的垂直偏移(px)，负值偏上",
+    "type": "number",
+    "default": -180
+  },
+  "show_delay_ms": {
+    "title": "显示延迟",
+    "description": "用户发出消息后延迟多少毫秒才显示思考气泡，避免闪烁",
+    "type": "number",
+    "default": 300
+  },
+  "text_change_interval_ms": {
+    "title": "文案切换间隔",
+    "description": "思考文案随机切换的间隔(ms)",
+    "type": "number",
+    "default": 2500
+  },
+  "custom_texts": {
+    "title": "自定义文案",
+    "description": "自定义思考文案列表(JSON数组字符串)，留空使用默认文案",
+    "type": "string",
+    "default": ""
+  }
+}
