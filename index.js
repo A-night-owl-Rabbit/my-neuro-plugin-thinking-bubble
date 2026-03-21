@@ -393,20 +393,18 @@ class ThinkingBubblePlugin extends Plugin {
     }
 
     _bindEvents() {
-        // TTS_START: TTS 真正开始播放时隐藏（最可靠的隐藏时机）
-        this._on(Events.TTS_START, () => this._hide());
-
         // LLM_ERROR: LLM 出错时隐藏
         this._on(Events.LLM_ERROR, () => this._hide());
 
-        // USER_INPUT_END: 请求处理完毕的最终安全兜底
-        this._on(Events.USER_INPUT_END, () => {
-            this._hide();
-        });
+        // USER_INPUT_END: 整个请求处理完毕的最终安全兜底
+        this._on(Events.USER_INPUT_END, () => this._hide());
 
-        // 注意：不监听 TTS_INTERRUPTED ！
-        // 因为新请求开始时会中断旧TTS，此时 TTS_INTERRUPTED 会清除我们刚设置的定时器
-        // 也不监听 LLM_REQUEST_START，该事件在代码中从未被 emit
+        // 不监听 TTS_START ！
+        // 工具调用链中间的"说话"也会触发 TTS_START，会误杀思考气泡
+        // 隐藏时机由插件钩子 onTTSStart / onLLMResponse 负责（只在最终回复时调用）
+        //
+        // 不监听 TTS_INTERRUPTED ！
+        // 新请求开始时会中断旧TTS，TTS_INTERRUPTED 会清除刚设置的定时器
     }
 
     _unbindEvents() {
