@@ -23,6 +23,12 @@
     "type": "number",
     "default": 2500
   },
+  "bubble_scale": {
+    "title": "气泡缩放",
+    "description": "控制思考气泡的整体缩放比例，1.0为原始大小，0.5为缩小一半，建议范围0.4~1.5",
+    "type": "number",
+    "default": 1.0
+  },
   "custom_texts": {
     "title": "自定义文案",
     "description": "自定义思考文案列表(JSON数组字符串)，留空使用默认文案",

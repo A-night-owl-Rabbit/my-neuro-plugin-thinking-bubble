@@ -1,7 +1,7 @@
 {
   "name": "thinking-bubble",
   "displayName": "思考气泡",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "official",
   "description": "在等待LLM回复期间，显示萌化的「正在思考」气泡，提升交互反馈体验",
   "framework_version": ">=1.0.0",

@@ -436,6 +436,11 @@ class ThinkingBubblePlugin extends Plugin {
         this._textEl.textContent = this._pickRandom();
         this._container.style.display = 'block';
 
+        const rawScale = Number(this._cfg.bubble_scale);
+        const scale = (isNaN(rawScale) || rawScale <= 0) ? 1 : rawScale;
+        this._container.style.transform = `scale(${scale})`;
+        this._container.style.transformOrigin = 'bottom left';
+
         requestAnimationFrame(() => {
             if (this._inner) {
                 this._inner.classList.add('visible');
