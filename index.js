@@ -273,6 +273,16 @@ class ThinkingBubblePlugin extends Plugin {
         this._loadCustomTexts();
     }
 
+    async onConfigChanged(newPluginConfig) {
+        this._cfg = newPluginConfig || this.context.getPluginFileConfig();
+        this._loadCustomTexts();
+        if (this._isShowing && this._container) {
+            this._applyScale();
+            this._posInitialized = false;
+            this._updatePosition();
+        }
+    }
+
     async onStart() {
         this._injectCSS();
         this._createDOM();
@@ -299,26 +309,23 @@ class ThinkingBubblePlugin extends Plugin {
     }
 
     async onTTSStart(_text) {
-        this._hide();
-    }
-
-    async onTTSEnd() {
-        this._hide();
-    }
-
-    async onLLMResponse(_response) {
-        this._hide();
+        // The plugin hook runs before audio playback starts. Actual playback is
+        // reported by Events.TTS_START, which is bound below.
     }
 
     // ===== 内部方法 =====
 
     _loadCustomTexts() {
+        this._texts = DEFAULT_TEXTS;
         const raw = this._cfg.custom_texts;
         if (raw && typeof raw === 'string' && raw.trim()) {
             try {
                 const arr = JSON.parse(raw);
                 if (Array.isArray(arr) && arr.length > 0) {
-                    this._texts = arr;
+                    const validTexts = arr
+                        .map(text => String(text || '').trim())
+                        .filter(Boolean);
+                    if (validTexts.length > 0) this._texts = validTexts;
                 }
             } catch {
                 // ignore
@@ -393,18 +400,17 @@ class ThinkingBubblePlugin extends Plugin {
     }
 
     _bindEvents() {
-        // LLM_ERROR: LLM 出错时隐藏
-        this._on(Events.LLM_ERROR, () => this._hide());
-
-        // USER_INPUT_END: 整个请求处理完毕的最终安全兜底
-        this._on(Events.USER_INPUT_END, () => this._hide());
-
-        // 不监听 TTS_START ！
-        // 工具调用链中间的"说话"也会触发 TTS_START，会误杀思考气泡
-        // 隐藏时机由插件钩子 onTTSStart / onLLMResponse 负责（只在最终回复时调用）
-        //
-        // 不监听 TTS_INTERRUPTED ！
-        // 新请求开始时会中断旧TTS，TTS_INTERRUPTED 会清除刚设置的定时器
+        // Successful audio hides at the real playback start. Terminal paths
+        // also hide so text-only and failed-audio turns cannot leave it stuck.
+        this._on(Events.TTS_START, () => this._hide());
+        this._on(Events.TTS_END, () => this._hide());
+        this._on(Events.TTS_INTERRUPTED, () => this._hide());
+        this._on(Events.USER_INPUT_END, () => {
+            const ttsProcessor = global.ttsProcessor;
+            if (!ttsProcessor?.isPlaying?.()) {
+                this._hide();
+            }
+        });
     }
 
     _unbindEvents() {
@@ -416,6 +422,7 @@ class ThinkingBubblePlugin extends Plugin {
 
     _scheduleShow() {
         if (!this._ready) return;
+        if (global.bubbleLayout?.isEditing()) return;
 
         if (this._isShowing) {
             this._textEl.textContent = this._pickRandom();
@@ -423,11 +430,13 @@ class ThinkingBubblePlugin extends Plugin {
         }
 
         clearTimeout(this._showTimer);
-        const delay = Number(this._cfg.show_delay_ms) || 300;
+        const rawDelay = Number(this._cfg.show_delay_ms);
+        const delay = Number.isFinite(rawDelay) && rawDelay >= 0 ? rawDelay : 300;
         this._showTimer = setTimeout(() => this._show(), delay);
     }
 
     _show() {
+        if (global.bubbleLayout?.isEditing()) return;
         if (!this._container || !this._inner) return;
         if (this._isShowing) return;
         if (this._isOtherBubbleActive()) return;
@@ -436,10 +445,14 @@ class ThinkingBubblePlugin extends Plugin {
         this._textEl.textContent = this._pickRandom();
         this._container.style.display = 'block';
 
-        const rawScale = Number(this._cfg.bubble_scale);
-        const scale = (isNaN(rawScale) || rawScale <= 0) ? 1 : rawScale;
-        this._container.style.transform = `scale(${scale})`;
-        this._container.style.transformOrigin = 'bottom left';
+        this._applyScale();
+
+        this._posInitialized = false;
+        if (!this._updatePosition()) {
+            this._isShowing = false;
+            this._container.style.display = 'none';
+            return;
+        }
 
         requestAnimationFrame(() => {
             if (this._inner) {
@@ -447,7 +460,6 @@ class ThinkingBubblePlugin extends Plugin {
             }
         });
 
-        this._posInitialized = false;
         this._startPositionTracking();
         this._startTextRotation();
     }
@@ -456,6 +468,7 @@ class ThinkingBubblePlugin extends Plugin {
      * @param {boolean} immediate - 是否跳过动画直接隐藏
      */
     _hide(immediate) {
+        if (global.bubbleLayout?.isEditing()) return;
         clearTimeout(this._showTimer);
         this._showTimer = null;
 
@@ -478,10 +491,10 @@ class ThinkingBubblePlugin extends Plugin {
     }
 
     _isOtherBubbleActive() {
-        const lyricsBubble = document.getElementById('lyrics-bubble-container');
-        if (lyricsBubble) {
-            const computed = window.getComputedStyle(lyricsBubble).display;
-            if (computed !== 'none') return true;
+        const checkIds = ['lyrics-bubble-container', 'dream-bubble-container'];
+        for (const id of checkIds) {
+            const el = document.getElementById(id);
+            if (el && window.getComputedStyle(el).display !== 'none') return true;
         }
         return false;
     }
@@ -490,9 +503,23 @@ class ThinkingBubblePlugin extends Plugin {
         return this._texts[Math.floor(Math.random() * this._texts.length)];
     }
 
+    _applyScale() {
+        if (!this._container) return;
+        if (global.bubbleLayout) {
+            global.bubbleLayout.applyStatic('thinking', this._container);
+            return;
+        }
+        const rawScale = Number(this._cfg.bubble_scale);
+        const scale = (Number.isFinite(rawScale) && rawScale > 0) ? rawScale : 1;
+        this._container.style.transform = `scale(${scale})`;
+        this._container.style.transformOrigin = 'bottom left';
+    }
+
     _startTextRotation() {
         this._stopTextRotation();
-        const interval = Number(this._cfg.text_change_interval_ms) || 2500;
+        const rawInterval = Number(this._cfg.text_change_interval_ms);
+        // 间隔 0 会导致疯狂刷新，这里严格要求 > 0，非法值回退默认
+        const interval = Number.isFinite(rawInterval) && rawInterval > 0 ? rawInterval : 2500;
         this._textRotateTimer = setInterval(() => {
             if (!this._textEl) return;
             this._textEl.classList.remove('thinking-text-fade');
@@ -517,31 +544,65 @@ class ThinkingBubblePlugin extends Plugin {
         this._positionTimer = null;
     }
 
+    _getActiveAvatarState() {
+        const facade = global.avatarFacade || (typeof window !== 'undefined' ? window.avatar : null);
+        const type = facade?.getActiveType?.() || global.currentModel?.modelType || 'live2d';
+        const model = facade?.getModel?.() || global.currentModel;
+        const canvas = facade?.getActiveCanvas?.()
+            || document.getElementById('live2d-canvas')
+            || document.getElementById('canvas');
+        return { type, model, canvas };
+    }
+
+    _getModelScreenPosition() {
+        const { type, model, canvas } = this._getActiveAvatarState();
+        if (!model || typeof model.toGlobal !== 'function') return null;
+
+        const modelGlobalPos = model.toGlobal({ x: 0, y: 0 });
+        if (!modelGlobalPos) return null;
+
+        const modelX = Number(modelGlobalPos.x);
+        const modelY = Number(modelGlobalPos.y);
+        if (!Number.isFinite(modelX) || !Number.isFinite(modelY)) return null;
+
+        if (type === 'live2d' && canvas) {
+            const canvasRect = canvas.getBoundingClientRect();
+            const canvasWidth = Number(canvas.width) || canvasRect.width || 1;
+            const canvasHeight = Number(canvas.height) || canvasRect.height || 1;
+            const scaleX = canvasRect.width / canvasWidth;
+            const scaleY = canvasRect.height / canvasHeight;
+            return {
+                x: canvasRect.left + modelX * scaleX,
+                y: canvasRect.top + modelY * scaleY
+            };
+        }
+
+        return { x: modelX, y: modelY };
+    }
+
     _updatePosition() {
-        if (!this._container || !this._isShowing) return;
+        if (!this._container || !this._isShowing) return false;
+        if (global.bubbleLayout?.isEditing()) return false;
 
         try {
-            if (!global.currentModel || !global.pixiApp) return;
+            const modelPos = global.bubbleLayout?.getModelScreenPosition?.() || this._getModelScreenPosition();
+            if (!modelPos) return false;
 
-            const canvas = document.getElementById('canvas');
-            if (!canvas) return;
-            const canvasRect = canvas.getBoundingClientRect();
-
-            const modelGlobalPos = global.currentModel.toGlobal({ x: 0, y: 0 });
-            const scaleX = canvasRect.width / canvas.width;
-            const scaleY = canvasRect.height / canvas.height;
-
-            const screenX = canvasRect.left + modelGlobalPos.x * scaleX;
-            const screenY = canvasRect.top + modelGlobalPos.y * scaleY;
-
-            if (isNaN(screenX) || isNaN(screenY)) return;
-
-            const rawX = Number(this._cfg.offset_x);
-            const rawY = Number(this._cfg.offset_y);
-            const offsetX = isNaN(rawX) ? -160 : rawX;
-            const offsetY = isNaN(rawY) ? -180 : rawY;
-            const targetX = screenX + offsetX;
-            const targetY = screenY + offsetY;
+            let offsetX;
+            let offsetY;
+            if (global.bubbleLayout) {
+                const layout = global.bubbleLayout.get('thinking');
+                offsetX = layout.offsetX;
+                offsetY = layout.offsetY;
+                global.bubbleLayout.applyStatic('thinking', this._container);
+            } else {
+                const rawX = Number(this._cfg.offset_x);
+                const rawY = Number(this._cfg.offset_y);
+                offsetX = Number.isFinite(rawX) ? rawX : -160;
+                offsetY = Number.isFinite(rawY) ? rawY : -180;
+            }
+            const targetX = modelPos.x + offsetX;
+            const targetY = modelPos.y + offsetY;
 
             const smooth = 0.18;
             if (!this._posInitialized) {
@@ -555,8 +616,10 @@ class ThinkingBubblePlugin extends Plugin {
 
             this._container.style.left = `${this._currentX}px`;
             this._container.style.top = `${this._currentY}px`;
+            return true;
         } catch {
             // silently ignore
+            return false;
         }
     }
 }

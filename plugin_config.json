@@ -1,38 +1,44 @@
 {
   "offset_x": {
     "title": "水平偏移",
-    "description": "气泡相对模型中心的水平偏移(px)，负值偏左，正值偏右",
+    "description": "已由气泡编辑器接管，改这里无效。请到 WebUI「Live2D设置」点「调整气泡位置」。",
     "type": "number",
-    "default": -160
+    "default": -160,
+    "value": "1200"
   },
   "offset_y": {
     "title": "垂直偏移",
-    "description": "气泡相对模型中心的垂直偏移(px)，负值偏上",
+    "description": "已由气泡编辑器接管，改这里无效。请到 WebUI「Live2D设置」点「调整气泡位置」。",
     "type": "number",
-    "default": -180
+    "default": -180,
+    "value": "300"
   },
   "show_delay_ms": {
-    "title": "显示延迟",
-    "description": "用户发出消息后延迟多少毫秒才显示思考气泡，避免闪烁",
+    "title": "显示延迟（毫秒）",
+    "description": "你发出消息后延迟多久才显示思考气泡，避免一闪而过。",
     "type": "number",
-    "default": 300
+    "default": 300,
+    "value": "300"
   },
   "text_change_interval_ms": {
-    "title": "文案切换间隔",
-    "description": "思考文案随机切换的间隔(ms)",
+    "title": "文案切换间隔（毫秒）",
+    "description": "思考中的文案每隔多久随机换一条。",
     "type": "number",
-    "default": 2500
+    "default": 2500,
+    "value": "25000"
   },
   "bubble_scale": {
     "title": "气泡缩放",
-    "description": "控制思考气泡的整体缩放比例，1.0为原始大小，0.5为缩小一半，建议范围0.4~1.5",
+    "description": "已由气泡编辑器接管，改这里无效。请到 WebUI「Live2D设置」点「调整气泡位置」。",
     "type": "number",
-    "default": 1.0
+    "default": 1.0,
+    "value": "0.6"
   },
   "custom_texts": {
     "title": "自定义文案",
-    "description": "自定义思考文案列表(JSON数组字符串)，留空使用默认文案",
+    "description": "想让气泡随机显示的文案列表，JSON 数组格式，例如 [\"在想…\",\"嗯…\"]；留空使用默认文案。",
     "type": "string",
-    "default": ""
+    "default": "",
+    "value": ""
   }
 }
